@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#123d32">
+  <title>FreshOut · Laundry timer</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/app.js" defer></script>
+</head>
+<body data-page="machine">
+  <header class="site-header"><a class="brand" href="/machine/washer-1" aria-label="FreshOut home">Fresh<span>Out</span></a><span class="eyebrow">Shared laundry</span></header>
+  <main class="shell">
+    <div class="intro"><p class="eyebrow">Laundry room</p><h1 id="machine-name">Loading machine…</h1><p>Set a reminder, then come back when your laundry is ready.</p></div>
+    <section class="card" aria-labelledby="status-heading">
+      <div class="status-row"><h2 id="status-heading">Current status</h2><span class="status" id="machine-status" role="status">Loading…</span></div>
+      <p id="status-detail" class="muted">Checking the machine.</p>
+    </section>
+    <section class="card" id="start-panel" hidden aria-labelledby="start-heading">
+      <h2 id="start-heading">Start a timer</h2>
+      <form id="start-form">
+        <label for="email">Email address</label>
+        <input id="email" name="email" type="email" autocomplete="email" inputmode="email" required placeholder="you@example.com">
+        <p class="hint">Your email is used only for laundry reminders.</p>
+        <label for="duration">Estimated cycle time</label>
+        <select id="duration" name="duration">
+          <option value="30">30 minutes</option><option value="35">35 minutes</option>
+          <option value="45">45 minutes</option><option value="60">60 minutes</option>
+          <option value="custom">Custom duration</option>
+        </select>
+        <div id="custom-wrap" hidden><label for="custom-duration">Custom minutes (5–240)</label><input id="custom-duration" type="number" min="5" max="240" step="1" inputmode="numeric"></div>
+        <button class="button primary" type="submit" id="start-button">Start timer</button>
+      </form>
+    </section>
+    <section class="card" id="notify-panel" hidden aria-labelledby="notify-heading">
+      <h2 id="notify-heading">Waiting for this machine?</h2>
+      <p>“Notify owner” is anonymous. The owner will get a short email asking them to move their laundry.</p>
+      <button class="button primary" type="button" id="notify-button">Notify owner</button>
+    </section>
+    <p id="message" class="message" role="alert" hidden></p>
+    <p class="note">This timer is an estimate and does not detect the machine automatically.</p>
+    <nav class="machine-nav" aria-label="Machines"><a href="/machine/washer-1">Washer 1</a><a href="/machine/dryer-1">Dryer 1</a></nav>
+  </main>
+</body>
+</html>

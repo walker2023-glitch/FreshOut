@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#123d32"><meta name="robots" content="noindex, nofollow">
+  <title>FreshOut · Your session</title>
+  <link rel="stylesheet" href="/style.css"><script src="/app.js" defer></script>
+</head>
+<body data-page="session">
+  <header class="site-header"><a class="brand" href="/machine/washer-1" aria-label="FreshOut home">Fresh<span>Out</span></a><span class="eyebrow">Private session</span></header>
+  <main class="shell">
+    <div class="intro"><p class="eyebrow">Your laundry timer</p><h1 id="session-machine">Loading session…</h1><p>Keep this link private so only you can manage this timer.</p></div>
+    <section class="card" aria-labelledby="finish-heading"><p class="eyebrow">Estimated finish</p><h2 id="finish-heading" class="finish-time">Loading…</h2><span class="status" id="session-status" role="status">Loading…</span></section>
+    <section class="card" id="actions-panel" hidden aria-labelledby="actions-heading"><h2 id="actions-heading">Manage your session</h2><div class="actions"><button class="button secondary" id="add-button" type="button">Add 10 minutes</button><button class="button primary" id="pickup-button" type="button">I picked up my laundry</button></div></section>
+    <p id="message" class="message" role="alert" hidden></p>
+    <p class="note">This timer is an estimate and does not detect the machine automatically.</p>
+    <a id="machine-link" href="/machine/washer-1" class="text-link">View machine status</a>
+  </main>
+</body>
+</html>
