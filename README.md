@@ -100,14 +100,17 @@ To test both machines manually, start a timer on Washer 1 and note the private p
 
 Run one persistent Node process behind HTTPS, set `NODE_ENV=production` and `BASE_URL` to the HTTPS public origin, configure SMTP, a 32-byte `SESSION_SECRET`, and a separate `ADMIN_TOKEN` of at least 32 bytes. Mount persistent storage for the SQLite file and back it up. Keep `SESSION_SECRET` stable: changing it invalidates existing private links. Existing MVP databases gain the new claim and expiry columns on first start. Closed sessions are deleted after seven days by the reminder worker.
 
-If you create a GitHub repository later, connect this checkout and push the current branch:
+## CI/CD
+
+GitHub Actions runs `npm ci`, syntax checks, tests, and a Docker build on pull requests and pushes to `main`. After those checks pass on `main`, it publishes `ghcr.io/walker2023-glitch/freshout:latest` and a tag named after the commit SHA. The workflow uses GitHub's repository token with package-write permission only for the publishing job; no SMTP or app secrets are placed in CI.
+
+Publishing an image is the delivery step. It does not restart a server or migrate a live deployment. To run the image on a host, create a private `.env.production` file with `NODE_ENV=production`, `BASE_URL=https://your-domain.example`, strong `SESSION_SECRET` and `ADMIN_TOKEN`, and working SMTP settings. Then run:
 
 ```powershell
-git remote add origin https://github.com/YOUR_USER/YOUR_REPO.git
-git push -u origin feature/freshout-pilot-hardening
+docker run -d --name freshout -p 3000:3000 --env-file .env.production -v freshout-data:/app/data ghcr.io/walker2023-glitch/freshout:latest
 ```
 
-Replace the URL with your repository URL. A remote is not configured in this checkout.
+Put an HTTPS reverse proxy in front of port 3000 and back up the `freshout-data` volume. The image runs as a non-root user; any bind-mounted data directory must be writable by that user. When you choose a host, add a deployment job that pulls the new image and restarts this single persistent process. Do not run multiple independent instances against separate SQLite files.
 
 ## Pilot privacy
 
