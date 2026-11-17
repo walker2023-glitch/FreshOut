@@ -8,27 +8,30 @@ The timer is an estimate; FreshOut does not detect machine activity. There are n
 
 Node.js 24+, Express 5, Node's built-in SQLite module, Nodemailer, and plain HTML/CSS/JavaScript. SQLite data persists in `data/freshout.sqlite` by default. The database and machine records are created on first launch. The `data/` directory and `.env` are ignored by Git.
 
-## Local setup
+## Windows PowerShell setup
 
 ```powershell
-npm install
+npm.cmd ci
 Copy-Item .env.example .env
+node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"
+node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"
+notepad .env
 ```
 
-Edit `.env` and replace `SESSION_SECRET` with at least 32 random characters and `ADMIN_TOKEN` with a separate long random value. One way to generate each value is `node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"`.
+Paste the first generated value into `SESSION_SECRET` and the second into `ADMIN_TOKEN` in `.env`. Each command generates 32 random bytes, encoded as 64 hex characters. Keep these values private. `SESSION_SECRET` is required in every mode; there is no insecure development fallback. The empty SMTP fields enable demo email mode for local development.
 
 ```powershell
-npm start
+npm.cmd start
 ```
 
-Open [Washer 1](http://localhost:3000/machine/washer-1) or [Dryer 1](http://localhost:3000/machine/dryer-1). Enter an email and select 30, 35, 45, 60, or a custom 5–240 minute duration. Save the private URL after starting. Use a second browser or private window to try **Notify owner**. The owner can add 10 minutes or mark the load picked up from the private page.
+Open [Washer 1](http://localhost:3000/machine/washer-1) or [Dryer 1](http://localhost:3000/machine/dryer-1). The app redirects to a private page with a timer-started confirmation and estimated finish time. Keep the private URL. It expires 24 hours after the timer starts; stale sessions then become available. An admin can reset a stuck session sooner.
 
 ## Environment variables
 
 | Variable | Purpose |
 | --- | --- |
 | `PORT` | HTTP port, default `3000` |
-| `BASE_URL` | Public origin used in email links; use HTTPS in deployment |
+| `BASE_URL` | Public origin used in email and QR links, with no trailing path; use HTTPS in deployment |
 | `ADMIN_TOKEN` | Bearer token for admin API; admin routes are disabled when unset |
 | `SESSION_SECRET` | Required, at least 32 bytes; hashes and encrypts private session tokens |
 | `SMTP_HOST` | SMTP server host |
@@ -37,10 +40,13 @@ Open [Washer 1](http://localhost:3000/machine/washer-1) or [Dryer 1](http://loca
 | `SMTP_PASSWORD` | SMTP password |
 | `EMAIL_FROM` | Sender address/name, defaults to SMTP username |
 | `DATABASE_PATH` | Optional SQLite path, default `data/freshout.sqlite` |
+| `NODE_ENV` | Set to `production` when deployed; requires SMTP configuration |
 
-If SMTP host, user, or password are missing, FreshOut logs each email's recipient, subject, and body to the server console. This is useful for local testing. When all three are present, Nodemailer sends actual email. Set `EMAIL_FROM` to an address accepted by your provider.
+For this computer, use `BASE_URL=http://localhost:3000`. For a phone on the same Wi-Fi, use your computer's reachable LAN address, such as `BASE_URL=http://192.168.1.50:3000`, and allow that port through the firewall. For deployment, use `BASE_URL=https://your-domain.example` behind an HTTPS proxy. Restart the server after changing `.env`, then regenerate QR codes. The URL in each printed code must be reachable from residents' phones.
 
-The reminder worker checks every 30 seconds. It reserves each due reminder before sending, which prevents duplicate completion emails on repeated runs. A crash or SMTP failure after reservation can cause a missed email; a production deployment should use a durable queue with provider idempotency. Anonymous owner notifications are limited to one per machine every 10 minutes.
+If SMTP host, user, or password are missing in development, FreshOut logs each email's recipient, subject, and body (including private session links in completion reminders) to the server console. This is demo mode; restrict console access. When all three are present, Nodemailer sends actual email. Set `EMAIL_FROM` to an address your provider accepts. In `NODE_ENV=production`, FreshOut refuses to start without SMTP. Real SMTP credentials are not included in this repository.
+
+The reminder worker checks every 30 seconds. It claims due reminders, records success only after delivery, and releases failed claims for retry on the next check. One failed email does not stop the others. Anonymous owner notifications follow the same rule and are limited to one successful send per machine every 10 minutes. A crash in the short interval after SMTP accepts an email but before SQLite records success can still cause a duplicate after the claim expires. Exactly-once email requires a provider with idempotency support or a durable queue with delivery reconciliation. Existing rows marked sent by the earlier MVP cannot be automatically identified as delivered or failed.
 
 ## API
 
@@ -57,25 +63,56 @@ All API responses are JSON. Errors use `{ "error": { "code": "...", "message": "
 | `GET /api/admin/sessions` | List occupied sessions; Bearer admin token required |
 | `POST /api/admin/sessions/:id/reset` | Cancel an occupied session; Bearer admin token required |
 
-For example, to view active sessions: `curl.exe -H "Authorization: Bearer YOUR_ADMIN_TOKEN" http://localhost:3000/api/admin/sessions`. Admin responses omit owner emails and private tokens.
+For example, in PowerShell:
+
+```powershell
+$adminToken = 'PASTE_YOUR_ADMIN_TOKEN'
+$headers = @{ Authorization = "Bearer $adminToken" }
+Invoke-RestMethod -Uri 'http://localhost:3000/api/admin/sessions' -Headers $headers
+Invoke-RestMethod -Method Post -Uri 'http://localhost:3000/api/admin/sessions/1/reset' -Headers $headers
+```
+
+Replace `1` with the session ID from the listing. Admin responses omit owner emails and private tokens. Do not share the admin token with residents.
 
 ## QR codes
 
-Print QR codes targeting the full deployed URLs `https://YOUR_DOMAIN/machine/washer-1` and `https://YOUR_DOMAIN/machine/dryer-1`. During local testing, use the same paths with a LAN-reachable host and matching `BASE_URL`; `localhost` on a phone refers to the phone, not your computer. Any trusted QR generator or `qrencode -o washer-1.png 'https://YOUR_DOMAIN/machine/washer-1'` can make the images.
+Set `BASE_URL` in `.env` to the address residents will use, then run:
+
+```powershell
+npm.cmd run qr:urls
+npm.cmd run qr:generate
+```
+
+The first command prints the full Washer 1 and Dryer 1 URLs. The second generates printable `qr/washer-1.svg` and `qr/dryer-1.svg` (ignored by Git). Print each code with its machine name and place it beside the matching machine, away from hot or wet surfaces. Scan **both** printed codes with a phone before the pilot and confirm the names match. Do not print localhost QR codes for residents: a phone's `localhost` is the phone itself. Regenerate and replace codes whenever `BASE_URL` changes.
 
 ## Checks
 
 ```powershell
-npm run check
-npm test
+npm.cmd run check
+npm.cmd test
 ```
 
-There is no build step. `npm run check` checks JavaScript syntax; `npm test` runs API and worker tests with an in-memory SQLite database and stub email delivery.
+There is no app build step. The checks cover syntax, API behavior, reminder retry behavior, private link handling, and admin controls with an in-memory SQLite database and stub email delivery.
+
+To test both machines manually, start a timer on Washer 1 and note the private page. In a second browser window, verify Washer 1 shows **In use**, a duplicate timer is rejected, and **Notify owner** sends an anonymous email (printed in the server console in demo mode). Return to the private page, add 10 minutes, then mark the load picked up. Washer 1 should show **Available**. Repeat the start and pickup flow for Dryer 1. Use the admin listing and reset route above to clear a stuck pilot session.
 
 ## Deployment later
 
-Run one persistent Node process behind HTTPS, set `BASE_URL` to the public origin, configure SMTP and strong secrets, and mount persistent storage for the SQLite file. Back up the database. Keep `SESSION_SECRET` stable: changing it invalidates existing private links. A larger deployment should move email delivery to a durable queue and add operational monitoring.
+Run one persistent Node process behind HTTPS, set `NODE_ENV=production` and `BASE_URL` to the HTTPS public origin, configure SMTP, a 32-byte `SESSION_SECRET`, and a separate `ADMIN_TOKEN` of at least 32 bytes. Mount persistent storage for the SQLite file and back it up. Keep `SESSION_SECRET` stable: changing it invalidates existing private links. Existing MVP databases gain the new claim and expiry columns on first start. Closed sessions are deleted after seven days by the reminder worker.
+
+If you create a GitHub repository later, connect this checkout and push the current branch:
+
+```powershell
+git remote add origin https://github.com/YOUR_USER/YOUR_REPO.git
+git push -u origin feature/freshout-pilot-hardening
+```
+
+Replace the URL with your repository URL. A remote is not configured in this checkout.
+
+## Pilot privacy
+
+FreshOut stores an owner's email only to send laundry reminders. Public machine pages and the anonymous notify response never reveal that email or the private link. The private link is a bearer credential: anyone who receives it can manage the timer, so residents should not share it. Links expire after 24 hours. Closed session records are deleted after seven days. Demo mode prints email contents to the server console, so keep that console private; use SMTP and HTTPS for a resident-facing pilot.
 
 ## Known limitations
 
-The app supports only the two seeded machines, uses an estimated timer with no hardware signal, and has a token-protected API instead of an admin UI. Private session URLs are bearer credentials; anyone with a copied link can manage that session. Email delivery is at most once for completion reminders.
+The app supports only the two seeded machines, uses an estimated timer with no hardware signal, and has a token-protected API instead of an admin UI. It cannot prove that a machine is physically free. Email delivery is retried after failures but cannot guarantee exactly-once delivery across a process crash after SMTP acceptance.
